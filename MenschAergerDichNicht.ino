@@ -93,6 +93,9 @@ uint8_t dimmed = MINBRIGHTNESS;
 byte player_wheel[] = { 0, 64, 128, 192 };
 
 void setup() {
+  Serial.begin(115200);
+  delay(100);
+  Serial.println("setup()");
   field.begin();
   field.show();
   finish.begin();
@@ -109,6 +112,7 @@ void setup() {
   delay(1000);
   byte c = 0;
   while (!select()) {
+    Serial.println("start-up animation");
     uint32_t color = dim(Wheel(c += 8), 20);
     for (uint8_t i = 0; i < 8; i++) {
       dice.setPixelColor(i, color);
@@ -162,17 +166,20 @@ void setup() {
       if (select()) break;
     }
   }
-
+  
+  Serial.println("start-up beendet");
   resetGame();
   setDefault();
   show();
 }
 
 void resetGame() {
+  Serial.println("resetGame()");
   bool waitForSelect = 1;
   uint32_t selectCounter = 0;
   randomSeed(millis());
   wonPlayers = 0;
+  Serial.println("Spieler zurueck setzem...");
   for (uint8_t player = 0; player < MAXPLAYERS; player++) {
     player_positions[player][0] = -1;
     player_positions[player][1] = -2;
@@ -184,9 +191,12 @@ void resetGame() {
   }
   setDefault();
   show();
+  Serial.println("Spieler zurueck gesetzt");
   selection = 0;
   selectCounter = 0;
 
+  Serial.println("Helligkeit auswaehlen...");
+  Serial.println("auf Wuerfel sichtbar");
   //Helligkeit
   while (true) {
     if (select()) {
@@ -218,9 +228,11 @@ void resetGame() {
     }
     show();
   }
+  Serial.println("Helligkeit ausgewaehlt");
   waitForSelect = 1;
   selectCounter = 0;
-
+  
+  Serial.println("Spieleranzahl auswaehlen...");
   //Spielerzahl
   diceNumber(players);
   while (true) {
@@ -241,14 +253,19 @@ void resetGame() {
         setDefault();
         diceNumber(players);
         show();
+        Serial.print(players);
+        Serial.println(" Spieler? (select zum bestaetigen)");
       }
       selectCounter = 0;
       waitForSelect = 0;
     }
   }
+  Serial.print(players);
+  Serial.println("  Spieler ausgewaehlt");
   waitForSelect = 1;
   selectCounter = 0;
 
+  Serial.println("Farbe auswaehlen ???...");
   //Farbe
   diceNumber(0);
   byte c = 0;
@@ -285,10 +302,12 @@ void resetGame() {
     dice.show();
     delay(20);
   }
+  Serial.println("Farbe ausgewaehlt");
   waitForSelect = 1;
 
   diceNumber(0);
 
+  Serial.println("Computerspieler auswaehlen (mit Player tasten ein/aus)...");
   //Computerspieler
   uint32_t rerand = 0;
   boolean touched[players];
@@ -326,6 +345,11 @@ void resetGame() {
         touched[player] = v;
         if (v) {
           autoPlay[player] = !autoPlay[player];
+          Serial.print("Spieler ");
+          Serial.print(player + 1);
+          Serial.print(" ist vom ");
+          Serial.print(autoPlay[player] ? "Comuter" : "Menschen");
+          Serial.println(" gesteuert");
         }
       }
       if (autoPlay[player]) {
@@ -336,6 +360,9 @@ void resetGame() {
     }
     show();
   }
+  Serial.println("Computerspieler ausgewaehlt");
+  
+  Serial.println("resetGame() beendet");
 }
 
 void loop() {
@@ -510,6 +537,7 @@ void setOtherPlayersBrightness(uint8_t player, uint8_t brightness) {
 
 //Figuren alle auf ihre Position setzen
 void setDefault(void) {
+  //Serial.println("setDefault()");
   for (uint8_t px = 0; px < field.numPixels(); px++) {
     field.setPixelColor(px, 0);
   }
