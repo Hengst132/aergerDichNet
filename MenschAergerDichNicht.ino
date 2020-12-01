@@ -232,7 +232,9 @@ void resetGame() {
   waitForSelect = 1;
   selectCounter = 0;
   
-  Serial.println("Spieleranzahl auswaehlen...");
+  Serial.println("Spieleranzahl auswaehlen... (mit select)");
+  Serial.println("kurz drücken um zu wechseln");
+  Serial.println("300 ms drücken bestätigen");
   //Spielerzahl
   diceNumber(players);
   while (true) {
@@ -254,7 +256,7 @@ void resetGame() {
         diceNumber(players);
         show();
         Serial.print(players);
-        Serial.println(" Spieler? (select zum bestaetigen)");
+        Serial.println(" Spieler? ");
       }
       selectCounter = 0;
       waitForSelect = 0;
@@ -368,6 +370,7 @@ void resetGame() {
 void loop() {
   unsigned long delayTo;
 
+  Serial.println("prüfen ob Spiel zuende ist...");
   //Gucken, ob Spiel bereits zu Ende
   boolean br;
   for (uint8_t player = 0; player < players; player++) {
@@ -386,6 +389,7 @@ void loop() {
   }
   //Spiel zu Ende
   if (wonPlayers + 1 >= players) {
+    Serial.println("Spiel zuende!");
     //blackout
     for (uint8_t px = 0; px < field.numPixels(); px++)
       field.setPixelColor(px, 0);
@@ -394,18 +398,27 @@ void loop() {
     for (uint8_t px = 0; px < dice.numPixels(); px++)
       dice.setPixelColor(px, 0);
     //Platzierungen anzeigen
+    Serial.println("Platzierung:");
     for (uint8_t player = 0; player < players; player++) {
+      Serial.print("Spieler ");
+      Serial.print(player +1);
+      Serial.print(" = Platz ");
+      Serial.println(playerRanking[player]);
       for (uint8_t px = 40; px < 40 + (playerRanking[player] == 0 ? players : playerRanking[player]); px++) {
         setPixel(player, px, player_colors[player]);
       }
     }
     show();
     //Neues Spiel
+    Serial.println("zum neu starten select-drücken");
     while (!select());
     resetGame();
     return;
   }
 
+  Serial.print("Spieler: ");
+  Serial.print(activePlayer+1);
+  Serial.println(" ist am Zug");
   diceNumber(0);
   while (true) {
     br = true;
@@ -413,18 +426,22 @@ void loop() {
     for (uint8_t figure = 0; figure < FIGURES; figure++) {
       if (player_positions[activePlayer][figure] < 40) {
         br = false;
+        Serial.println("Spieler muss noch ziehen...");
         break;
       }
     }
     if (br) {
+      Serial.println("Spieler muss nicht mehr ziehen, Zug beendet!");
       break;
     }
     uint8_t movement = 0;
+    Serial.println("Würfeln (max 3xMal)");
     //Maximal 3 Mal würfeln zum rauskommen
     for (uint8_t rolledTimes = 0; rolledTimes < 3; rolledTimes++) {
       movement = rollDice(rolledTimes);
       //Nur, wenn keine Figur bewegbar ist (alle im Ziel oder Haus und keine 6), dann noch einmal versuchen
       if (nextFigure(movement) || nextFigure(1)) break;
+      Serial.println("keine Figur bewegbar (alle im Ziel oder Haus und keine 6), noch einmal würfeln");
     }
 
     activeFigure = 0;
@@ -437,11 +454,14 @@ void loop() {
       }
       setDefault();
       show();
+      Serial.println("es kann mit keiner Figur gesetzt werden, Zug beendet.");
       break;
     }
     previousFigure(movement); // Reset to next playable figure
 
+    Serial.println("Figur zum setzen auswählen:");
     if (autoPlay[activePlayer]) {
+      Serial.println("Computerspieler wählt Figur...");
       // Computerspieler
       boolean collides = false;
       //Zuerst versuchen, jemanden zu schlagen
@@ -450,7 +470,12 @@ void loop() {
           for (uint8_t p = 0; p < players; p++) {
             for (uint8_t pf = 0; pf < FIGURES; pf++) {
               collides |= collision(activePlayer, activeFigure, p, pf, movement);
-              if (collides) break;
+              if (collides) {
+                Serial.print("Computer kann mit Figur ");
+                Serial.print(activeFigure +1);
+                Serial.println(" schlagen");
+                break;
+              }
             }
             if (collides) break;
           }
@@ -462,6 +487,9 @@ void loop() {
       for (uint8_t f = 0; f < FIGURES && !collides; f++) {
         if (player_positions[activePlayer][f] < FINISH1 && player_positions[activePlayer][f] + movement >= FINISH1) {
           collides = true; //Variable setzen, damit nicht zufaellig gewaehlt wird
+          Serial.print("Computer kann mit Figur ");
+          Serial.print(activeFigure +1);
+          Serial.println(" ins Ziel gehen");
           break;
         }
         nextFigure(movement);
@@ -470,14 +498,26 @@ void loop() {
       for (uint8_t f = 0; f < random(FIGURES) && !collides; f++) {
         nextFigure(movement);
       }
+      if (!collides) {
+        Serial.print("Computer wählt zufällig Figur ");
+        Serial.println(activeFigure +1);
+      }
     }
     else {
+      Serial.print("Spieler ");
+      Serial.print(activePlayer +1);
+      Serial.println(" muss Figur auswählen (mit Player-Taste)");
+      Serial.println("kurz drücken um zwischen den Figuren zu wechseln");
+      Serial.println("500 ms drücken setzt die ausgewählten Figur");
       // Normaler Spieler
       boolean isTouched = false;
       unsigned long touchStart;
       while (true) {
         if (isTouched && touchStart + 500 < millis()) {
           // 500ms druecken setzt den ausgewaehlten Spieler
+          Serial.print("Figur ");
+          Serial.print(activeFigure +1);
+          Serial.println(" bestätigt!");
           break;
         }
         if (getTouch(activePlayer) != isTouched) {
@@ -488,17 +528,22 @@ void loop() {
           else {
             //losgelassen -> naechste Figur
             nextFigure(movement);
+            Serial.print("soll Figur ");
+            Serial.print(activeFigure +1);
+            Serial.println(" ausgewählt werden?");
           }
         }
         animateFigure(activePlayer, activeFigure, movement);
       }
     }
     //Figur bewegen
+    Serial.println("Figur wird bewegt...");
     moveFigure(activePlayer, activeFigure, movement);
     if (movement != 6) {
       break;
     }
     //Busy wait
+    Serial.println("Player Taste betätigen um Zug zu beenden");
     while (getTouch(activePlayer) && !autoPlay[activePlayer]);
   }
   activePlayer = (activePlayer + players - 1) % players;
@@ -594,6 +639,9 @@ uint8_t rollDice(boolean again) {
   uint8_t number = random(6);
   uint8_t i = 0;
   if (autoPlay[activePlayer]) {
+    Serial.print("Computerspieler-");
+    Serial.print(activePlayer +1);
+    Serial.println(", schnelles Würfeln");
     for (char c = 0; c < 100 + number; c++) {
       i++;
       i %= 6;
@@ -602,6 +650,9 @@ uint8_t rollDice(boolean again) {
     }
   }
   else {
+    Serial.print("Spieler ");
+    Serial.print(activePlayer +1);
+    Serial.println(" muss Würfeln (Player Taste gedrückt halten)");
     while (!getTouch(activePlayer)) {
       fade(activePlayer);
       if (!again)
@@ -635,6 +686,8 @@ uint8_t rollDice(boolean again) {
   if (autoPlay[activePlayer]) {
     delay(700);
   }
+  Serial.print("geworfene Augenzahl: ");  
+  Serial.println(i % 6 + 1);  
   return i % 6 + 1;
 }
 
